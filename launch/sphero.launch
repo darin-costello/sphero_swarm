@@ -1,0 +1,4 @@
+<launch>
+    <arg name="name_space" default=""/>
+    <include file="$(find sphero)/launch/sphero.launch" ns="$(name_space)" pass_all_args="true"/>
+</launch>
