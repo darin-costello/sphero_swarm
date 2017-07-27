@@ -1,0 +1,2 @@
+string name
+sphero/SpheroCollision data

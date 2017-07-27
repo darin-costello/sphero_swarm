@@ -46,6 +46,7 @@ class SpheroSwarmNode(object):
 
     def _init_sub(self):
         self._sphero_publishers = {topic: {} for topic in PUB_TOPICS}
+
         self._subscribers['cmd_vel'] = rospy.Subscriber(
             'cmd_vel', SpheroTwist, self.forward_sub, callback_args='cmd_vel')
         self._subscribers['cmd_turn'] = rospy.Subscriber(
