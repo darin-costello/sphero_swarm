@@ -7,13 +7,12 @@ A node to ease the use of multiple spheros
 import sys
 from subprocess import Popen
 from future.utils import viewitems
-
 import rospy
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Imu
 from nav_msgs.msg import Odometry
 from std_msgs.msg import ColorRGBA, Float32, Bool
-from sphero_swarm.msg import SpheroTwist, SpheroTurn, SpheroColor, SpheroBackLed, SpheroDisableStabilization, SpheroHeading, SpheroAngularVelocity
+from sphero_swarm.msg import SpheroSwarmTwist, SpheroSwarmTurn, SpheroSwarmColor, SpheroSwarmBackLed, SpheroSwarmDisableStabilization, SpheroSwarmHeading, SpheroSwarmAngularVelocity, SpheroSwarmOdom, SpheroSwarmImu, SpheroSwarmCollision
 from sphero_swarm.srv import AddSubscriber, AddSubscriberResponse
 
 LAUNCHCODE = "roslaunch sphero_swarm sphero.launch name_space:={0} sphero_address={1}"
@@ -41,6 +40,11 @@ class SpheroSwarmNode(object):
         self._subscribers = {}
         self._init_sub()
 
+        self.odom_pub = None
+        self.imu_pub = None
+        self.collision_pub = None
+        self._init_pub()
+
         self.processes = {}
         self._start_all_spheros()
 
@@ -57,19 +61,25 @@ class SpheroSwarmNode(object):
 
     def _init_sub(self):
         self._subscribers['cmd_vel'] = rospy.Subscriber(
-            'cmd_vel', SpheroTwist, self.forward_sub, callback_args='cmd_vel')
+            'cmd_vel', SpheroSwarmTwist, self.forward_sub, callback_args='cmd_vel')
         self._subscribers['cmd_turn'] = rospy.Subscriber(
-            'cmd_turn', SpheroTurn, self.forward_sub, callback_args='cmd_turn')
+            'cmd_turn', SpheroSwarmTurn, self.forward_sub, callback_args='cmd_turn')
         self._subscribers['set_color'] = rospy.Subscriber(
-            'set_color', SpheroColor, self.forward_sub, callback_args='set_color')
+            'set_color', SpheroSwarmColor, self.forward_sub, callback_args='set_color')
         self._subscribers['set_back_led'] = rospy.Subscriber(
-            'set_back_led', SpheroBackLed, self.forward_sub, callback_args='set_back_led')
+            'set_back_led', SpheroSwarmBackLed, self.forward_sub, callback_args='set_back_led')
         self._subscribers['disable_stabilization'] = rospy.Subscriber(
-            'disable_stabilization', SpheroDisableStabilization, self.forward_sub, callback_args='disable_stabilization')
+            'disable_stabilization', SpheroSwarmDisableStabilization, self.forward_sub, callback_args='disable_stabilization')
         self._subscribers['set_heading'] = rospy.Subscriber(
-            'set_heading', SpheroHeading, self.forward_sub, callback_args='set_heading')
+            'set_heading', SpheroSwarmHeading, self.forward_sub, callback_args='set_heading')
         self._subscribers['set_angular_velocity'] = rospy.Subscriber(
-            'set_angular_velocity', SpheroAngularVelocity, self.forward_sub, callback_args='set_angular_velocity')
+            'set_angular_velocity', SpheroSwarmAngularVelocity, self.forward_sub, callback_args='set_angular_velocity')
+
+    def _init_pub(self):
+        self.odom_pub = rospy.Publisher('odom', SpheroSwarmOdom, queue_size=1)
+        self.imu_pub = rospy.Publisher('imu', SpheroSwarmImu, queue_size=1)
+        self.collision_pub = rospy.Publisher(
+            'collision', SpheroSwarmCollision, queue_size=1)
 
     def _start_all_spheros(self):
         spheros = self._spheros
