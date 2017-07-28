@@ -29,6 +29,10 @@ PUB_TOPICS = {'cmd_vel':  Twist,
 
 class SpheroSwarmNode(object):
 
+    """
+    A ros node for controlling a swarm of spheros
+    """
+
     def __init__(self):
         rospy.init_node("sphero_swarm_node")
         self.name_space = rospy.get_namespace()
@@ -101,17 +105,29 @@ class SpheroSwarmNode(object):
             'list_spheros', ListSphero, self.list_sphero_srv)
 
     def add_sphero_srv(self, info):
+        """
+        service call to add a new sphero
+        """
         response = self.add_sphero(info.name, info.address)
         return SpheroInfoResponse(1) if response else SpheroInfoResponse(0)
 
     def remove_sphero_srv(self, info):
+        """
+        service call to remove sphero
+        """
         self.remove_sphero(info.name)
         return SpheroInfoResponse(1)
 
     def list_sphero_srv(self, *args):
+        """
+        service call to list all spheros
+        """
         return ListSpheroResponse(list(self._spheros.keys()))
 
     def add_sphero(self, name, address):
+        """
+        starts the given sphero
+        """
         if name in self._spheros or address in self._spheros.values():
             return False
         namespace = self.name_space + "/" + name
@@ -138,8 +154,11 @@ class SpheroSwarmNode(object):
             return False
 
     def remove_sphero(self, name):
+        """
+        removes and stops the given sphero
+        """
         [x.unregister()
-            for x in self._sphero_publishers[name].values()]
+         for x in self._sphero_publishers[name].values()]
         [x.unregister()
          for x in self._sphero_subscribers[name].values()]
         del self._sphero_publishers[name]
@@ -154,28 +173,43 @@ class SpheroSwarmNode(object):
                 pass
 
     def forward_pub(self, msg, topic):
+        """
+        forwards messages to spheros
+        """
         if msg.name in self._sphero_publishers:
             self._sphero_publishers[msg.name][topic].publish(msg.data)
 
     def forward_odom(self, msg, name):
+        """
+        Combines sphero odom messages to single topic
+        """
         message = SpheroSwarmOdom()
         message.name = name
         message.data = msg
         self.odom_pub.publish(message)
 
     def forward_imu(self, msg, name):
+        """
+        combines sphero imu message to single topci
+        """
         message = SpheroSwarmImu()
         message.name = name
         message.data = msg
         self.imu_pub(message)
 
     def forward_collision(self, msg, name):
+        """
+        combines sphero collision messages to single topic
+        """
         message = SpheroSwarmCollision()
         message.name = name
         message.data = msg
         self.collision_pub(message)
 
     def spin(self):
+        """
+        spin call
+        """
         rate = rospy.Rate(self._refersh_rate)
         while not rospy.is_shutdown():
             for (name, process) in viewitems(self.processes):
@@ -186,3 +220,16 @@ class SpheroSwarmNode(object):
                     else:
                         del self._spheros[name]
             rate.sleep()
+
+    def stop(self):
+        """
+        Stops all the spheros
+        """
+        for name in self._spheros:
+            self.remove_sphero(name)
+
+
+if __name__ == '__main__':
+    SWARM = SpheroSwarmNode()
+    SWARM.spin()
+    SWARM.stop()
