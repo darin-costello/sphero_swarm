@@ -5,15 +5,25 @@
 A node to ease the use of multiple spheros
 """
 import sys
-import subprocess
+from subprocess import Popen
+from future.utils import viewitems
 
 import rospy
+from geometry_msgs.msg import Twist
+from sensor_msgs.msg import Imu
+from nav_msgs.msg import Odometry
+from std_msgs.msg import ColorRGBA, Float32, Bool
 from sphero_swarm.msg import SpheroTwist, SpheroTurn, SpheroColor, SpheroBackLed, SpheroDisableStabilization, SpheroHeading, SpheroAngularVelocity
 from sphero_swarm.srv import AddSubscriber, AddSubscriberResponse
 
 LAUNCHCODE = "roslaunch sphero_swarm sphero.launch name_space:={0} sphero_address={1}"
-PUB_TOPICS = ['cmd_vel', 'cmd_turn', 'set_color', 'set_back_led',
-              'disable_stabilization', 'set_heading', 'set_angular_velocity']
+PUB_TOPICS = {'cmd_vel':  Twist,
+              'cmd_turn': Float32,
+              'set_color': ColorRGBA,
+              'set_back_led': Float32,
+              'disable_stabilization': Bool,
+              'set_heading': Float32,
+              'set_angular_velocity': Float32}
 
 
 class SpheroSwarmNode(object):
@@ -32,6 +42,7 @@ class SpheroSwarmNode(object):
         self._init_sub()
 
         self.processes = {}
+        self._start_all_spheros()
 
         self._add_sub_srv = None
         self._init_services()
@@ -45,8 +56,6 @@ class SpheroSwarmNode(object):
             sys.exit(1)
 
     def _init_sub(self):
-        self._sphero_publishers = {topic: {} for topic in PUB_TOPICS}
-
         self._subscribers['cmd_vel'] = rospy.Subscriber(
             'cmd_vel', SpheroTwist, self.forward_sub, callback_args='cmd_vel')
         self._subscribers['cmd_turn'] = rospy.Subscriber(
@@ -62,6 +71,12 @@ class SpheroSwarmNode(object):
         self._subscribers['set_angular_velocity'] = rospy.Subscriber(
             'set_angular_velocity', SpheroAngularVelocity, self.forward_sub, callback_args='set_angular_velocity')
 
+    def _start_all_spheros(self):
+        spheros = self._spheros
+        self._spheros = {}
+        for (name, address) in viewitems(spheros):
+            self.add_sphero(name, address)
+
     def _init_services(self):
         self.add_sub_srv = rospy.Service(
             'add_subscriber', AddSubscriber, self.add_sub)
@@ -72,8 +87,32 @@ class SpheroSwarmNode(object):
     def add_sphero(self, name, address):
         if name in self._spheros or address in self._spheros.values():
             return False
+        namespace = self.name_space + "/" + name
+        launch = LAUNCHCODE.format(namespace + address)
+        process = Popen(launch, shell=True)
+        if process.poll() is not None:
+            self.processes[name] = process
+            self._spheros[name] = address
+            sphero_pubs = {}
+            for (pub_name, pub_type) in viewitems(PUB_TOPICS):
+                sphero_pubs[pub_name] = rospy.Publisher(
+                    namespace + "/" + pub_name, pub_type, queue_size=1)
+            self._sphero_publishers[name] = sphero_pubs
 
     def forward_sub(self, msg, topic):
-        publisher = self._sphero_publishers[topic]
-        if msg.name in publisher:
-            publisher[msg.name].publish(msg.data)
+        if msg.name in self._sphero_publishers:
+            self._sphero_publishers[msg.name][topic].publish(msg.data)
+
+    def spin(self):
+        rate = rospy.Rate(self._refersh_rate)
+        while not rospy.is_shutdown():
+            for (name, process) in viewitems(self.processes):
+                if process.poll is not None:
+                    [x.unregister()
+                     for x in self._sphero_publishers[name].values()]
+                    del self._sphero_publishers[name]
+                if self._auto_reconnect:
+                    self.add_sphero(name, self._spheros[name])
+                else:
+                    del self._spheros[name]
+            rate.sleep()
