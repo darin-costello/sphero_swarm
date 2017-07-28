@@ -13,8 +13,8 @@ from sensor_msgs.msg import Imu
 from nav_msgs.msg import Odometry
 from std_msgs.msg import ColorRGBA, Float32, Bool
 from sphero_swarm.msg import SpheroSwarmTwist, SpheroSwarmTurn, SpheroSwarmColor, SpheroSwarmBackLed, SpheroSwarmDisableStabilization, SpheroSwarmHeading, SpheroSwarmAngularVelocity, SpheroSwarmOdom, SpheroSwarmImu, SpheroSwarmCollision
-from sphero_swarm.srv import AddSphero, AddSpheroRequest, AddSpheroResponse
-from sphero_swarm.srv import ListSphero, ListSpheroRequest, ListSpheroResponse
+from sphero_swarm.srv import SpheroInfo, SpheroInfoResponse
+from sphero_swarm.srv import ListSphero, ListSpheroResponse
 from sphero.msg import SpheroCollision
 
 LAUNCHCODE = "roslaunch sphero_swarm sphero.launch name_space:={0} sphero_address={1}"
@@ -51,7 +51,9 @@ class SpheroSwarmNode(object):
         self.processes = {}
         self._start_all_spheros()
 
-        self._add_sub_srv = None
+        self._add_sphero_srv = None
+        self._remove_sphero_srv = None
+        self._list_sphero_srv = None
         self._init_services()
 
     def _init_params(self):
@@ -91,7 +93,23 @@ class SpheroSwarmNode(object):
             self.add_sphero(name, address)
 
     def _init_services(self):
-        pass
+        self._add_sphero_srv = rospy.Service(
+            'add_sphero', SpheroInfo, self.add_sphero_srv)
+        self._remove_sphero_srv = rospy.Service(
+            'remove_sphero', SpheroInfo, self.remove_sphero_srv)
+        self._list_sphero_srv = rospy.Service(
+            'list_spheros', ListSphero, self.list_sphero_srv)
+
+    def add_sphero_srv(self, info):
+        response = self.add_sphero(info.name, info.address)
+        return SpheroInfoResponse(1) if response else SpheroInfoResponse(0)
+
+    def remove_sphero_srv(self, info):
+        self.remove_sphero(info.name)
+        return SpheroInfoResponse(1)
+
+    def list_sphero_srv(self, *args):
+        return ListSpheroResponse(list(self._spheros.keys()))
 
     def add_sphero(self, name, address):
         if name in self._spheros or address in self._spheros.values():
@@ -115,6 +133,25 @@ class SpheroSwarmNode(object):
             sphero_subs['collision'] = rospy.Subscriber(
                 namespace + '/collison', SpheroCollision, queue_size=1)
             self._sphero_subscribers[name] = sphero_subs
+            return True
+        else:
+            return False
+
+    def remove_sphero(self, name):
+        [x.unregister()
+            for x in self._sphero_publishers[name].values()]
+        [x.unregister()
+         for x in self._sphero_subscribers[name].values()]
+        del self._sphero_publishers[name]
+        del self._sphero_subscribers[name]
+        del self._spheros[name]
+        process = self.processes[name]
+        del self.processes[name]
+        if process.poll() is not None:
+            try:
+                process.kill()
+            except:
+                pass
 
     def forward_pub(self, msg, topic):
         if msg.name in self._sphero_publishers:
@@ -142,15 +179,10 @@ class SpheroSwarmNode(object):
         rate = rospy.Rate(self._refersh_rate)
         while not rospy.is_shutdown():
             for (name, process) in viewitems(self.processes):
-                if process.poll is not None:
-                    [x.unregister()
-                     for x in self._sphero_publishers[name].values()]
-                        [x.unregister()
-                         for x in self._sphero_subscribers[name].values()]
-                    del self._sphero_publishers[name]
-                    del self._sphero_subscribers[name]
-                if self._auto_reconnect:
-                    self.add_sphero(name, self._spheros[name])
-                else:
-                    del self._spheros[name]
+                if process.poll() is not None:
+                    self.remove_sphero(name)
+                    if self._auto_reconnect:
+                        self.add_sphero(name, self._spheros[name])
+                    else:
+                        del self._spheros[name]
             rate.sleep()
