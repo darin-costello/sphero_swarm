@@ -1,2 +1,2 @@
 string name
-data float32
+float32 data
