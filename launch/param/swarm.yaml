@@ -1,0 +1,10 @@
+sphero_swarm:
+  swarm: {
+        #  'Sphero-PRG':'68:86:E7:07:4D:17',
+        # 'Sphero-OBR':'68:86:E7:07:2D:E1',
+        # 'Sphero-YWY':'68:86:E7:07:59:71',
+        # 'Sphero-BGP':'68:86:E7:07:4F:F0',
+        # 'Sphero_RRG':'68:86:E7:07:59:14',
+        #  'Sphero-BPY':'68:86:E7:07:2D:A6',
+        #  'Sphero-ROB':'68:86:E7:02:8D:CF'
+  }
