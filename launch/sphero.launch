@@ -1,4 +1,9 @@
 <launch>
     <arg name="name_space" default=""/>
-    <include file="$(find sphero)/launch/sphero.launch" ns="$(name_space)" pass_all_args="true"/>
+    <arg name="name" default="sphero_node"/>
+    <arg name="sphero_address"/>
+    <include file="$(find sphero)/launch/sphero.launch" ns="$(arg name_space)">
+        <arg name="name" value="$(arg name)"/>
+        <arg name="sphero_address" value="$(arg sphero_address)"/>
+    </include>
 </launch>

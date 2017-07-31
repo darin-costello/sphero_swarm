@@ -13,12 +13,12 @@ from sensor_msgs.msg import Imu as SensorImu
 from nav_msgs.msg import Odometry
 from std_msgs.msg import ColorRGBA, Float32, Bool
 
-from sphero_swarm.msg import Turn, Color, BackLed, DisableStabilization, Heading, Velocity, Odom, Collision, Twist, Imu
+from sphero_swarm.msg import Turn, Color, BackLed, DisableStabilization, Heading, AngularVelocity, Odom, Collision, Twist, Imu
 from sphero_swarm.srv import SpheroInfo, SpheroInfoResponse
 from sphero_swarm.srv import ListSphero, ListSpheroResponse
 from sphero.msg import SpheroCollision
 
-LAUNCHCODE = "roslaunch sphero_swarm sphero.launch name_space:={0} sphero_address={1} name:={2}"
+LAUNCHCODE = "roslaunch sphero_swarm sphero.launch name_space:={0} sphero_address:={1} name:={2}"
 PUB_TOPICS = {'cmd_vel':  GeometryTwist,
               'cmd_turn': Float32,
               'set_color': ColorRGBA,
@@ -37,7 +37,8 @@ class SpheroSwarmNode(object):
     def __init__(self):
         rospy.init_node("sphero_swarm_node")
         self.name_space = rospy.get_namespace()
-
+        rospy.logdebug("namespace : %s", self.name_space)
+        rospy.on_shutdown(self.stop)
         self._spheros = {}
         self._auto_reconnect = False
         self._refersh_rate = 10
@@ -83,7 +84,7 @@ class SpheroSwarmNode(object):
         self._subscribers['set_heading'] = rospy.Subscriber(
             'set_heading', Heading, self.forward_pub, callback_args='set_heading')
         self._subscribers['set_angular_velocity'] = rospy.Subscriber(
-            'set_angular_velocity', Velocity, self.forward_pub, callback_args='set_angular_velocity')
+            'set_angular_velocity', AngularVelocity, self.forward_pub, callback_args='set_angular_velocity')
 
     def _init_pub(self):
         self.odom_pub = rospy.Publisher('odom', Odom, queue_size=1)
@@ -95,6 +96,7 @@ class SpheroSwarmNode(object):
         spheros = self._spheros
         self._spheros = {}
         for (name, address) in viewitems(spheros):
+            rospy.logdebug("starting %s", name)
             self.add_sphero(name, address)
 
     def _init_services(self):
@@ -131,10 +133,10 @@ class SpheroSwarmNode(object):
         """
         if name in self._spheros or address in self._spheros.values():
             return False
-        namespace = self.name_space + "/" + name
+        namespace = self.name_space + name
         launch = LAUNCHCODE.format(namespace, address, name)
         process = Popen(launch, shell=True)
-        if process.poll() is not None:
+        if process.poll() is None:
             self.processes[name] = process
             self._spheros[name] = address
             sphero_pubs = {}
@@ -144,14 +146,15 @@ class SpheroSwarmNode(object):
             self._sphero_publishers[name] = sphero_pubs
             sphero_subs = {}
             sphero_subs['odom'] = rospy.Subscriber(
-                namespace + '/odom', Odometry, queue_size=1)
+                namespace + '/odom', Odometry, self.forward_odom, callback_args=name, queue_size=1)
             sphero_subs['imu'] = rospy.Subscriber(
-                namespace + '/imu', SensorImu, queue_size=1)
+                namespace + '/imu', SensorImu, self.forward_imu, callback_args=name, queue_size=1)
             sphero_subs['collision'] = rospy.Subscriber(
-                namespace + '/collison', SpheroCollision, queue_size=1)
+                namespace + '/collison', SpheroCollision, self.forward_collision, callback_args=name, queue_size=1)
             self._sphero_subscribers[name] = sphero_subs
             return True
         else:
+            rospy.logerr("NOT CONNECTED...ISH %s", process.poll())
             return False
 
     def remove_sphero(self, name):
@@ -196,7 +199,7 @@ class SpheroSwarmNode(object):
         message = Imu()
         message.name = name
         message.data = msg
-        self.imu_pub(message)
+        self.imu_pub.publish(message)
 
     def forward_collision(self, msg, name):
         """
@@ -205,7 +208,7 @@ class SpheroSwarmNode(object):
         message = Collision()
         message.name = name
         message.data = msg
-        self.collision_pub(message)
+        self.collision_pub.publish(message)
 
     def spin(self):
         """
@@ -215,6 +218,7 @@ class SpheroSwarmNode(object):
         while not rospy.is_shutdown():
             for (name, process) in viewitems(self.processes):
                 if process.poll() is not None:
+                    rospy.loginfo("%s is disconnected", name)
                     self.remove_sphero(name)
                     if self._auto_reconnect:
                         self.add_sphero(name, self._spheros[name])
@@ -226,11 +230,14 @@ class SpheroSwarmNode(object):
         """
         Stops all the spheros
         """
+        print "stopping"
+        self._auto_reconnect = False
         for name in self._spheros:
             self.remove_sphero(name)
 
 
 if __name__ == '__main__':
+    rospy.logdebug("Starting Swarm")
     SWARM = SpheroSwarmNode()
     SWARM.spin()
     SWARM.stop()

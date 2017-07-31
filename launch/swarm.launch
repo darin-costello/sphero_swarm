@@ -1,4 +1,4 @@
 <launch>
     <rosparam command="load" file="$(find sphero_swarm)/launch/param/swarm.yaml" />
-    <node pkg="sphero_swarm" type="sphero_swarm_node.py"></node>
+    <node pkg="sphero_swarm" type="sphero_swarm_node.py" name="swarm"></node>
 </launch>
