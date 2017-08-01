@@ -152,7 +152,7 @@ class SpheroSwarmNode(object):
             sphero_subs['imu'] = rospy.Subscriber(
                 namespace + '/imu', SensorImu, self.forward_imu, callback_args=name, queue_size=1)
             sphero_subs['collision'] = rospy.Subscriber(
-                namespace + '/collison', SpheroCollision, self.forward_collision, callback_args=name, queue_size=1)
+                namespace + '/collision', SpheroCollision, self.forward_collision, callback_args=name, queue_size=1)
             self._sphero_subscribers[name] = sphero_subs
             return True
         else:
