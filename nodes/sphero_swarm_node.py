@@ -19,6 +19,8 @@ from sphero_swarm.srv import ListSphero, ListSpheroResponse
 from sphero.msg import SpheroCollision
 
 LAUNCHCODE = "roslaunch sphero_swarm sphero.launch name_space:={0} sphero_address:={1} name:={2}"
+
+LAUNCHCODE = "ROS_NAMESPACE={0} rosrun sphero sphero_node.py _bt_addr:={1} _name:={2}"
 PUB_TOPICS = {'cmd_vel':  GeometryTwist,
               'cmd_turn': Float32,
               'set_color': ColorRGBA,
@@ -64,7 +66,7 @@ class SpheroSwarmNode(object):
 
     def _init_params(self):
         self._refersh_rate = rospy.get_param("~refersh_rate", 10)
-        self._auto_reconnect = rospy.get_param("~auto_reconnect", False)
+        self._auto_reconnect = rospy.get_param("~auto_reconnect", True)
         self._spheros = rospy.get_param("sphero_swarm/swarm", {})
         if len(self._spheros) != len(set(self._spheros.values())):
             rospy.logerr("Each sphero needs a unique address")
@@ -216,14 +218,14 @@ class SpheroSwarmNode(object):
         """
         rate = rospy.Rate(self._refersh_rate)
         while not rospy.is_shutdown():
-            for (name, process) in viewitems(self.processes):
+
+            for (name, process) in viewitems(self.processes.copy()):
                 if process.poll() is not None:
                     rospy.loginfo("%s is disconnected", name)
+                    address = self._spheros[name]
                     self.remove_sphero(name)
                     if self._auto_reconnect:
-                        self.add_sphero(name, self._spheros[name])
-                    else:
-                        del self._spheros[name]
+                        self.add_sphero(name, address)
             rate.sleep()
 
     def stop(self):
@@ -232,8 +234,12 @@ class SpheroSwarmNode(object):
         """
         print "stopping"
         self._auto_reconnect = False
-        for name in self._spheros:
-            self.remove_sphero(name)
+        for (name, process) in viewitems(self.processes):
+            if process.poll() is not None:
+                try:
+                    process.kill()
+                except:
+                    pass
 
 
 if __name__ == '__main__':
