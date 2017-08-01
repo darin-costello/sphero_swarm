@@ -188,8 +188,14 @@ install(PROGRAMS
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
   )
 
+install(PROGRAMS
+  nodes/sphero_swarm_teleop_gui.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  )
+
 install(DIRECTORY launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+
 
 ## Mark executables and/or libraries for installation
 # install(TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_node

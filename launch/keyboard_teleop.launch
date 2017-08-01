@@ -1,0 +1,3 @@
+<launch>
+    <node pkg="sphero_swarm" type="sphero_swarm_teleop_gui.py" name="sphero_swarm_teleop_gui" output="screen"></node>
+</launch>
