@@ -192,6 +192,10 @@ install(PROGRAMS
   nodes/sphero_swarm_teleop_gui.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
   )
+install(PROGRAMS
+  nodes/sphero_swarm_manager.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  )
 
 install(DIRECTORY launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})

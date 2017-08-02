@@ -5,7 +5,9 @@
 A node to ease the use of multiple spheros
 """
 import sys
-from subprocess import Popen
+import shlex
+from subprocess import Popen, signal
+import os
 from future.utils import viewitems
 import rospy
 from geometry_msgs.msg import Twist as GeometryTwist
@@ -18,9 +20,10 @@ from sphero_swarm.srv import SpheroInfo, SpheroInfoResponse
 from sphero_swarm.srv import ListSphero, ListSpheroResponse
 from sphero.msg import SpheroCollision
 
-LAUNCHCODE = "roslaunch sphero_swarm sphero.launch name_space:={0} sphero_address:={1} name:={2}"
+# LAUNCHCODE = "roslaunch sphero_swarm sphero.launch name_space:={0} sphero_address:={1} name:={2}"
 
-LAUNCHCODE = "ROS_NAMESPACE={0} rosrun sphero sphero_node.py _bt_addr:={1} _name:={2}"
+# LAUNCHCODE = "ROS_NAMESPACE={0} rosrun sphero sphero_node.py _bt_addr:={1} _name:={2}"
+LAUNCHCODE = "rosrun sphero sphero_node.py _bt_addr:={0} _name:={1}"
 PUB_TOPICS = {'cmd_vel':  GeometryTwist,
               'cmd_turn': Float32,
               'set_color': ColorRGBA,
@@ -113,7 +116,7 @@ class SpheroSwarmNode(object):
         """
         service call to add a new sphero
         """
-        response = self.add_sphero(info.name, info.address)
+        response = self.add_sphero(info.name, info.bt_addr)
         return SpheroInfoResponse(1) if response else SpheroInfoResponse(0)
 
     def remove_sphero_srv(self, info):
@@ -136,8 +139,10 @@ class SpheroSwarmNode(object):
         if name in self._spheros or address in self._spheros.values():
             return False
         namespace = self.name_space + name
-        launch = LAUNCHCODE.format(namespace, address, name)
-        process = Popen(launch, shell=True)
+        launch = LAUNCHCODE.format(address, name)
+        env = os.environ
+        env["ROS_NAMESPACE"] = namespace
+        process = Popen(shlex.split(launch), shell=False, env=env)
         if process.poll() is None:
             self.processes[name] = process
             self._spheros[name] = address
@@ -163,6 +168,18 @@ class SpheroSwarmNode(object):
         """
         removes and stops the given sphero
         """
+        if name not in self._spheros:
+            return
+        process = self.processes[name]
+        del self.processes[name]
+        if process.poll() is None:
+            try:
+                process.send_signal(signal.SIGINT)
+                process.wait()
+                # process.kill()
+
+            except Exception as e:
+                rospy.logerr(e.message)
         [x.unregister()
          for x in self._sphero_publishers[name].values()]
         [x.unregister()
@@ -170,13 +187,6 @@ class SpheroSwarmNode(object):
         del self._sphero_publishers[name]
         del self._sphero_subscribers[name]
         del self._spheros[name]
-        process = self.processes[name]
-        del self.processes[name]
-        if process.poll() is not None:
-            try:
-                process.kill()
-            except:
-                pass
 
     def forward_pub(self, msg, topic):
         """
