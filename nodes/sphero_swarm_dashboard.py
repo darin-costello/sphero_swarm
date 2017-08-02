@@ -5,24 +5,24 @@ import rospy
 import math
 from PyQt4 import QtGui, QtCore
 #from geometry_msgs.msg import Twist
-#from std_msgs.msg import ColorRGBA, Float32, Bool
+from std_msgs.msg import ColorRGBA, Float32, Bool
 
-from sphero_swarm.msg import SpheroBackLed, SpheroColor, SpheroTwist, SpheroTurn, SpheroHeading, SpheroDisableStabilization
+from sphero_swarm.msg import BackLed, Color, Twist, Turn, Heading, DisableStabilization
+from sphero_swarm.srv import ListSphero
 
 
 class SpheroListItem(QtGui.QListWidgetItem):
 
-    def __init__(self, name, addr, rgb, back_led, disable_stabilization):
+    def __init__(self, name, rgb, back_led, disable_stabilization):
         super(QtGui.QListWidgetItem, self).__init__()
         self.name = name
-        self.addr = addr
         self.rgb = rgb
         self.back_led = back_led
         self.disable_stabilization = disable_stabilization
         self.setText(str(self))
 
     def __repr__(self):
-        return str(self.name) + "   " + str(self.addr)
+        return str(self.name)
 
 
 class LEDWidget(QtGui.QLabel):
@@ -100,7 +100,7 @@ class DashboardWidget(QtGui.QWidget):
                               self.parentWindow.ledB])
 
         self.btnUpdate = QtGui.QPushButton("Update")
-        self.btnUpdate.clicked.connect(self.updateColor)
+        self.btnUpdate.clicked.connect(self.updateColorCallback)
 
         self.disableStabilizationRadioButton = QtGui.QRadioButton(
             "Disable Stabilization")
@@ -178,13 +178,13 @@ class DashboardWidget(QtGui.QWidget):
         self.spheroListWidget.update()
         self.update()
 
-    def updateColor(self):
+    def updateColorCallback(self):
         r = self.r_sl.value()
         g = self.g_sl.value()
         b = self.b_sl.value()
         back = self.bk_sl.value()
         self.updateWidgetColor(r, g, b)
-        self.updateSpheroColor(r, g, b, back)
+        self.updateColor(r, g, b, back)
         selected_items = self.spheroListWidget.selectedItems()
         if len(selected_items) > 0:
             for item in selected_items:
@@ -197,7 +197,7 @@ class DashboardWidget(QtGui.QWidget):
         self.led.setRGB(r, g, b)
         self.update()
 
-    def updateSpheroColor(self, r, g, b, back):
+    def updateColor(self, r, g, b, back):
         self.setLEDColor(r, g, b)
         self.setBackLED(back)
 
@@ -263,23 +263,22 @@ class SpheroDashboardForm(QtGui.QMainWindow):
         super(QtGui.QMainWindow, self).__init__()
         self.resize(400, 600)
 
-        self.sphero_dict = {}
+        self.spheros = []
         self.sphero_info = {}
         rospy.init_node('sphero_swarm_dashboard', anonymous=True)
 
-        self.ledR = rospy.get_param('sphero_swarm/connect_red')
-        self.ledG = rospy.get_param('sphero_swarm/connect_green')
-        self.ledB = rospy.get_param('sphero_swarm/connect_blue')
-        self.ledBack = rospy.get_param('sphero_swarm/connect_back_led')
-
-        self.cmdTurnPub = rospy.Publisher('cmd_turn', SpheroTurn, queue_size=1)
-        self.ledPub = rospy.Publisher('set_color', SpheroColor, queue_size=1)
+        self.cmdTurnPub = rospy.Publisher('cmd_turn', Turn, queue_size=1)
+        self.ledPub = rospy.Publisher('set_color', Color, queue_size=1)
         self.backLedPub = rospy.Publisher(
-            'set_back_led', SpheroBackLed, queue_size=1)
+            'set_back_led', BackLed, queue_size=1)
         self.headingPub = rospy.Publisher(
-            'set_heading', SpheroHeading, queue_size=1)
+            'set_heading', Heading, queue_size=1)
         self.disableStabilizationPub = rospy.Publisher(
-            'disable_stabilization', SpheroDisableStabilization, queue_size=1)
+            'disable_stabilization', DisableStabilization, queue_size=1)
+        self.ledR = 0
+        self.ledG = 0
+        self.ledB = 0
+        self.ledBack = 0
 
         self.initUI()
 
@@ -290,37 +289,37 @@ class SpheroDashboardForm(QtGui.QMainWindow):
         self.show()
 
     def refreshDevices(self):
-
+        rospy.wait_for_service('list_spheros')
+        list_spheros = rospy.ServiceProxy('list_spheros', ListSphero)
         self.dashboard.spheroListWidget.clear()
-        self.sphero_dict = rospy.get_param('sphero_swarm/connected')
+        self.spheros = list_spheros().name
 
-        print(self.sphero_dict)
+        print(self.spheros)
 
-        for name in self.sphero_dict:
-            bt_addr = self.sphero_dict[name]
-            self.sphero_info[name] = [bt_addr, [self.ledR,
-                                                self.ledG, self.ledB], self.ledBack, False]
+        for name in self.spheros:
+            self.sphero_info[name] = [
+                [self.ledR, self.ledG, self.ledB], self.ledBack, False]
             self.dashboard.spheroListWidget.addItem(SpheroListItem(
-                name, bt_addr, [self.ledR, self.ledG, self.ledB], self.ledBack, False))
+                name, [self.ledR, self.ledG, self.ledB], self.ledBack, False))
         self.update()
 
     def setLEDColorByName(self, name, r, g, b):
-        color = SpheroColor(name, r, g, b, 255)
+        color = Color(name, ColorRGBA(r, g, b, 255))
         self.ledPub.publish(color)
 
     def setBackLEDByName(self, name, val):
-        light = SpheroBackLed(name, val)
+        light = BackLed(name, val)
         self.backLedPub.publish(light)
 
     def setHeadingByName(self, name, val):
-        turning = SpheroTurn(name, val)
+        turning = Turn(name, val)
         self.cmdTurnPub.publish(turning)
 
-        heading = SpheroHeading(name, 0.0)
+        heading = Heading(name, 0.0)
         self.headingPub.publish(heading)
 
     def setDisableStabilizationByName(self, name, on):
-        stab_data = SpheroDisableStabilization(name, on)
+        stab_data = DisableStabilization(name, on)
         self.disableStabilizationPub.publish(stab_data)
 
 
