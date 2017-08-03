@@ -122,7 +122,7 @@ class SpheroSwarmManagerWidget(QtGui.QWidget):
         for i in range(self.spheroListWidget.count()):
             item = self.spheroListWidget.item(i)
             print "disconnect " + str(item.name)
-            self.parentWindow.disconnectSphero(item.name, item.addr)
+            self.parentWindow.disconnectSphero(item.name)
         self.updateList()
 
     def testSphero(self):
