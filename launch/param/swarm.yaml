@@ -1,17 +1,18 @@
 sphero_swarm:
   swarm: {
-        #  'SpheroPRG':'68:86:E7:07:4D:17',
-        #  'SpheroBPY':'68:86:E7:07:2D:A6',
-        # 'SpheroOBR':'68:86:E7:07:2D:E1',
-        # 'SpheroYWY':'68:86:E7:07:59:71',
-        # 'SpheroBGP':'68:86:E7:07:4F:F0',
-        # 'SpheroRRG':'68:86:E7:07:59:14',
-        #  'SpheroROB':'68:86:E7:02:8D:CF',
-        # 'SpheroYBO':'68:86:E7:07:89:37',
-        #  'SpheroOGG':'68:86:E7:02:8B:A0',
-        #  'SpheroRGR':'68:86:E7:06:E7:1F',
-        # 'SpheroRBY':'68:86:E7:07:85:E9',
-        # 'SpheroOYY':'68:86:E7:07:49:1C',
-        # 'SpheroYRG':'68:86:E7:07:51:C2',
+          # 'SpheroOBR':'68:86:E7:07:2D:E1',
+
+        'SpheroYWY':'68:86:E7:07:59:71',
+        'SpheroRRG':'68:86:E7:07:59:14',
+        'SpheroYBO':'68:86:E7:07:89:37',
+         'SpheroOGG':'68:86:E7:02:8B:A0',
+         'SpheroRGR':'68:86:E7:06:E7:1F',
+        'SpheroRBY':'68:86:E7:07:85:E9',
+        'SpheroOYY':'68:86:E7:07:49:1C',
+        'SpheroYRG':'68:86:E7:07:51:C2',
          
   }
+          #  'SpheroBPY':'68:86:E7:07:2D:A6',
+          #  'SpheroROB':'68:86:E7:02:8D:CF',
+          #  'SpheroPRG':'68:86:E7:07:4D:17',
+          # 'SpheroBGP':'68:86:E7:07:4F:F0',

@@ -100,9 +100,15 @@ class SpheroSwarmNode(object):
     def _start_all_spheros(self):
         spheros = self._spheros
         self._spheros = {}
+        i = 0
         for (name, address) in viewitems(spheros):
             rospy.logdebug("starting %s", name)
             self.add_sphero(name, address)
+            rospy.sleep(2)
+            i += 1
+            if i == 7:
+                rospy.logwarn("Can only add 7 spheros")
+                break
 
     def _init_services(self):
         self._add_sphero_srv = rospy.Service(
