@@ -28,10 +28,10 @@ Each tool can be started with rusrun, or through the provided launch files.
 **sphero_swarm_manager**
     A gui tool that allows the user to dynamicallly add and remove spheros
 
-**sphero_swarm_dashboard***
+**sphero_swarm_dashboard**
     A gui tool that allows sphero color and heading customization.
 
-***keyboard_teleop***
+**keyboard_teleop**
     A gui tool that allows teleoperation of a single sphero at a time. To use select ther Sphero you wish to control, and then click the white text box.
 
 
